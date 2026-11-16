@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% set seccion = "codigos" %}
+{% block titulo %}Códigos{% endblock %}
+
+{% block contenido %}
+<h1>Generador de códigos de barras</h1>
+
+<div class="venta-grid">
+  <div class="tarjeta">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+      <div>
+        <label>Formato</label>
+        <select id="formato">
+          <option value="CODE128">Code128 (cualquier texto/número)</option>
+          <option value="EAN13">EAN-13 (12 o 13 dígitos)</option>
+        </select>
+      </div>
+      <div>
+        <label>Texto debajo del código</label>
+        <select id="mostrar">
+          <option value="si">Mostrar</option>
+          <option value="no">No mostrar</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label id="label-datos">Datos del código</label>
+      <input type="text" id="datos" placeholder="Ej: 123456789012" autocomplete="off">
+      <div id="error-codigo" class="hint-codigo" style="color:var(--rojo)"></div>
+    </div>
+
+    <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
+      <button class="boton-verde" onclick="generar()">Generar</button>
+      <button class="boton-gris" onclick="codigoInterno()">Generar código interno al azar</button>
+    </div>
+
+    <div class="hint-pesable" style="display:block; margin-top:14px">
+      💡 <strong>Code128</strong>: para códigos internos (pesables, productos caseros), acepta letras y números.
+      <strong>EAN-13</strong>: el estándar de góndola, 13 dígitos (si ponés 12, calcula el dígito verificador solo).
+    </div>
+  </div>
+
+  <div>
+    <div class="barcode-salida" id="salida">
+      <canvas id="barcode"></canvas>
+      <div id="sin-codigo" class="vacio">Generá un código para verlo acá.</div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px">
+      <button class="boton" id="btn-descargar" onclick="descargar()" disabled>⬇ Descargar PNG</button>
+      <button class="boton-gris" id="btn-imprimir" onclick="imprimir()" disabled>🖨 Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='jsbarcode.min.js') }}"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let ultimoValor = "";
+
+function generar() {
+  const valor = $("datos").value.trim();
+  const formato = $("formato").value;
+  const mostrar = $("mostrar").value === "si";
+  $("error-codigo").textContent = "";
+  if (!valor) { $("error-codigo").textContent = "Escribí los datos del código."; return; }
+  if (formato === "EAN13" && !/^\d{12,13}$/.test(valor)) {
+    $("error-codigo").textContent = "EAN-13 necesita 12 o 13 dígitos numéricos.";
+    return;
+  }
+  try {
+    JsBarcode("#barcode", valor, {
+      format: formato,
+      displayValue: mostrar,
+      width: 2,
+      height: 90,
+      fontSize: 18,
+      margin: 12,
+    });
+    ultimoValor = valor;
+    $("sin-codigo").style.display = "none";
+    $("barcode").style.display = "";
+    $("btn-descargar").disabled = false;
+    $("btn-imprimir").disabled = false;
+  } catch (e) {
+    $("error-codigo").textContent = "No se pudo generar. Revisá que los datos sirvan para ese formato.";
+  }
+}
+
+function codigoInterno() {
+  // Código numérico aleatorio de 12 dígitos para uso interno (Code128)
+  $("formato").value = "CODE128";
+  let s = "2";  // el 2 inicial se usa para códigos internos
+  for (let i = 0; i < 11; i++) s += Math.floor(Math.random() * 10);
+  $("datos").value = s;
+  generar();
+}
+
+function descargar() {
+  const canvas = $("barcode");
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = "codigo-" + (ultimoValor || "barras") + ".png";
+  a.click();
+}
+
+function imprimir() {
+  const canvas = $("barcode");
+  const img = canvas.toDataURL("image/png");
+  const v = document.createElement("iframe");
+  v.style.position = "fixed"; v.style.right = "0"; v.style.bottom = "0";
+  v.style.width = "0"; v.style.height = "0"; v.style.border = "0";
+  document.body.appendChild(v);
+  const doc = v.contentWindow.document;
+  doc.open();
+  doc.write('<img src="' + img + '" style="max-width:100%" onload="window.focus();window.print();">');
+  doc.close();
+  setTimeout(() => document.body.removeChild(v), 1000);
+}
+
+$("datos").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); generar(); } });
+</script>
+{% endblock %}

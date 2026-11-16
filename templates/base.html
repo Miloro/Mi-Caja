@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Caja{% endblock %} - Sistema de Venta</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <span class="marca">🛒 Mi Caja</span>
+    <nav>
+      <a href="{{ url_for('venta') }}" class="{{ 'activo' if seccion == 'venta' }}">Venta</a>
+      <a href="{{ url_for('productos') }}" class="{{ 'activo' if seccion == 'productos' }}">Productos</a>
+      <a href="{{ url_for('lotes') }}" class="{{ 'activo' if seccion == 'lotes' }}">Lotes</a>
+      <a href="{{ url_for('codigos') }}" class="{{ 'activo' if seccion == 'codigos' }}">Códigos</a>
+      <a href="{{ url_for('eoq') }}" class="{{ 'activo' if seccion == 'eoq' }}">Lote óptimo</a>
+      <a href="{{ url_for('historial') }}" class="{{ 'activo' if seccion == 'historial' }}">Historial</a>
+    </nav>
+  </header>
+  <main>
+    {% block contenido %}{% endblock %}
+  </main>
+</body>
+</html>

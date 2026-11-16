@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% set seccion = "venta" %}
+{% block titulo %}Venta{% endblock %}
+
+{% block contenido %}
+<h1>Venta</h1>
+
+<div id="aviso" class="aviso"></div>
+
+<div class="venta-grid">
+  <div>
+    <div class="tarjeta">
+      <label for="codigo">Escaneá el producto (o escribí el código y Enter)</label>
+      <input type="text" id="codigo" placeholder="Apuntá el lector acá..." autocomplete="off" autofocus>
+
+      <!-- Alta rapida: aparece si el codigo no existe -->
+      <div id="alta-rapida">
+        <strong>Producto nuevo</strong> — código <span id="ar-codigo" style="font-weight:700"></span>. Cargalo para agregarlo a la venta:
+        <div style="display:grid; grid-template-columns:2fr 1.2fr; gap:10px; margin-top:10px">
+          <div><label>Nombre</label><input type="text" id="ar-nombre" autocomplete="off"></div>
+          <div>
+            <label>Tipo</label>
+            <select id="ar-tipo" onchange="arToggle()">
+              <option value="unitario">Por unidad</option>
+              <option value="pesable">Pesable (por gramos)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px">
+          <div><label id="ar-label-precio">Precio por unidad</label><input type="number" id="ar-precio" step="0.01" min="0" value="" placeholder="0"></div>
+          <div id="ar-grupo-gramos" style="display:none">
+            <label>cada cuántos gramos</label>
+            <input type="number" id="ar-gramos" min="1" step="1" value="100">
+          </div>
+          <div><label id="ar-label-stock">Stock (unidades)</label><input type="number" id="ar-stock" step="0.001" min="0" value="" placeholder="0"></div>
+        </div>
+        <div id="ar-hint" class="hint-pesable" style="display:none"></div>
+        <div style="margin-top:10px">
+          <button class="boton-verde" onclick="guardarAltaRapida()">Guardar y agregar</button>
+          <button class="boton-gris" onclick="cerrarAltaRapida()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="num">Precio</th>
+            <th style="text-align:center">Cantidad</th>
+            <th class="num">Subtotal</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="carrito-body">
+          <tr id="fila-vacia"><td colspan="5" class="vacio">Todavía no agregaste productos. Escaneá para empezar.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel-total">
+    <div class="total-label">Total a cobrar</div>
+    <div class="total-numero" id="total">$0</div>
+    <div class="resumen"><span>Ítems</span><span id="cant-articulos">0</span></div>
+    <button class="boton-verde" id="btn-cerrar" onclick="cerrarVenta()">✓ Cerrar venta</button>
+    <button class="boton-gris" onclick="vaciarCarrito()" style="width:100%; margin-top:8px">Vaciar</button>
+  </div>
+</div>
+
+<!-- Modal de peso para productos pesables -->
+<div id="modal-peso" class="modal-fondo" style="display:none">
+  <div class="tarjeta" style="width:360px; max-width:92vw;">
+    <strong id="mp-nombre"></strong>
+    <div class="carrito-item-codigo" id="mp-precio"></div>
+    <div style="margin-top:14px">
+      <label for="mp-gramos">Peso en gramos</label>
+      <input type="number" id="mp-gramos" min="0" step="1" inputmode="numeric" placeholder="Ej: 750">
+    </div>
+    <div class="resumen" style="margin-top:12px; font-size:17px">
+      <span>Subtotal</span><span id="mp-subtotal" style="font-weight:800; color:var(--verde-oscuro)">$0</span>
+    </div>
+    <div style="margin-top:14px; display:flex; gap:8px; justify-content:flex-end">
+      <button class="boton-gris" onclick="cerrarPeso()">Cancelar</button>
+      <button class="boton-verde" onclick="confirmarPeso()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let carrito = [];  // {codigo, nombre, tipo, precio, unidad_gramos, cantidad, stock}
+let pesoProd = null;
+const $ = (id) => document.getElementById(id);
+
+function moneda(n) {
+  return "$" + Number(n).toLocaleString("es-AR", {minimumFractionDigits: 0, maximumFractionDigits: 2});
+}
+function numero(n) {
+  return Number(n).toLocaleString("es-AR", {maximumFractionDigits: 3});
+}
+function subtotalItem(i) {
+  if (i.tipo === "pesable") return i.precio * i.cantidad / (i.unidad_gramos > 0 ? i.unidad_gramos : 1);
+  return i.precio * i.cantidad;
+}
+
+function mostrarAviso(texto, tipo) {
+  const a = $("aviso");
+  a.textContent = texto;
+  a.className = "aviso " + tipo;
+  clearTimeout(a._t);
+  if (tipo === "ok") a._t = setTimeout(() => { a.className = "aviso"; }, 2500);
+}
+
+function modalAbierto() {
+  return $("modal-peso").style.display === "flex" || $("alta-rapida").classList.contains("visible");
+}
+function foco() { if (!modalAbierto()) $("codigo").focus(); }
+
+// --- Lector de codigo de barras: escribe el codigo + Enter ---
+$("codigo").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const codigo = this.value.trim();
+    this.value = "";
+    if (codigo) buscarYAgregar(codigo);
+  }
+});
+
+async function buscarYAgregar(codigo) {
+  try {
+    const r = await fetch("/api/producto/" + encodeURIComponent(codigo));
+    if (r.status === 404) { abrirAltaRapida(codigo); return; }
+    const p = await r.json();
+    if (p.tipo === "pesable") {
+      abrirPeso(p);
+      return;
+    }
+    // Unitario: si ya esta, suma 1
+    const existente = carrito.find((i) => i.codigo === p.codigo);
+    if (existente) {
+      existente.cantidad += 1;
+    } else {
+      carrito.push({codigo: p.codigo, nombre: p.nombre, tipo: p.tipo, precio: p.precio,
+                    unidad_gramos: p.unidad_gramos, cantidad: 1, stock: p.stock});
+    }
+    render();
+    if (p.stock <= 0) mostrarAviso("Ojo: \"" + p.nombre + "\" no tiene stock.", "error");
+  } catch (err) {
+    mostrarAviso("No se pudo conectar con el sistema.", "error");
+  }
+}
+
+function cambiarCantidad(codigo, delta) {
+  const item = carrito.find((i) => i.codigo === codigo);
+  if (!item) return;
+  item.cantidad += delta;
+  if (item.cantidad <= 0) carrito = carrito.filter((i) => i.codigo !== codigo);
+  render();
+}
+
+function quitar(codigo) {
+  carrito = carrito.filter((i) => i.codigo !== codigo);
+  render();
+}
+
+function render() {
+  const body = $("carrito-body");
+  if (carrito.length === 0) {
+    body.innerHTML = '<tr id="fila-vacia"><td colspan="5" class="vacio">Todavía no agregaste productos. Escaneá para empezar.</td></tr>';
+  } else {
+    body.innerHTML = carrito.map((i) => {
+      const sub = subtotalItem(i);
+      let precioTxt, cantTxt;
+      if (i.tipo === "pesable") {
+        precioTxt = moneda(i.precio) + ' <span class="carrito-item-codigo">/ ' + numero(i.unidad_gramos) + ' g</span>';
+        cantTxt = `<span class="cant-control">
+            <span class="cant">${numero(i.cantidad)} g</span>
+            <button title="Cambiar peso" onclick="editarPeso('${jsStr(i.codigo)}')">✏️</button>
+          </span>`;
+      } else {
+        precioTxt = moneda(i.precio);
+        cantTxt = `<span class="cant-control">
+            <button onclick="cambiarCantidad('${jsStr(i.codigo)}', -1)">−</button>
+            <span class="cant">${i.cantidad}</span>
+            <button onclick="cambiarCantidad('${jsStr(i.codigo)}', 1)">+</button>
+          </span>`;
+      }
+      return `<tr>
+        <td>
+          <div class="carrito-item-nombre">${escapar(i.nombre)}</div>
+          <div class="carrito-item-codigo">${escapar(i.codigo)}</div>
+        </td>
+        <td class="num">${precioTxt}</td>
+        <td style="text-align:center">${cantTxt}</td>
+        <td class="num">${moneda(sub)}</td>
+        <td class="num"><button class="boton-rojo boton-chico" onclick="quitar('${jsStr(i.codigo)}')">Quitar</button></td>
+      </tr>`;
+    }).join("");
+  }
+  const total = carrito.reduce((s, i) => s + subtotalItem(i), 0);
+  $("total").textContent = moneda(total);
+  $("cant-articulos").textContent = carrito.length;
+  foco();
+}
+
+async function cerrarVenta() {
+  if (carrito.length === 0) { mostrarAviso("La venta está vacía.", "error"); return; }
+  const btn = $("btn-cerrar");
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/venta", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({items: carrito}),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      mostrarAviso("✓ Venta cerrada: " + moneda(res.total) + ". Stock actualizado.", "ok");
+      carrito = [];
+      render();
+    } else {
+      mostrarAviso(res.error || "No se pudo cerrar la venta.", "error");
+    }
+  } catch (err) {
+    mostrarAviso("No se pudo conectar con el sistema.", "error");
+  } finally {
+    btn.disabled = false;
+    foco();
+  }
+}
+
+function vaciarCarrito() {
+  if (carrito.length && !confirm("¿Vaciar la venta actual?")) return;
+  carrito = [];
+  render();
+}
+
+// --- Modal de peso ---
+function abrirPeso(prod) {
+  pesoProd = prod;
+  const existente = carrito.find((i) => i.codigo === prod.codigo);
+  $("mp-nombre").textContent = prod.nombre;
+  $("mp-precio").textContent = moneda(prod.precio) + " cada " + numero(prod.unidad_gramos) + " g";
+  $("mp-gramos").value = existente ? existente.cantidad : "";
+  $("modal-peso").style.display = "flex";
+  recalcPeso();
+  setTimeout(() => { $("mp-gramos").focus(); $("mp-gramos").select(); }, 50);
+}
+function recalcPeso() {
+  const g = parseFloat($("mp-gramos").value) || 0;
+  const base = pesoProd && pesoProd.unidad_gramos > 0 ? pesoProd.unidad_gramos : 1;
+  const sub = pesoProd ? pesoProd.precio * g / base : 0;
+  $("mp-subtotal").textContent = moneda(sub);
+}
+$("mp-gramos").addEventListener("input", recalcPeso);
+$("mp-gramos").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmarPeso(); } });
+
+function confirmarPeso() {
+  const g = parseFloat($("mp-gramos").value) || 0;
+  if (!pesoProd) return;
+  const existente = carrito.find((i) => i.codigo === pesoProd.codigo);
+  if (g <= 0) {
+    if (existente) carrito = carrito.filter((i) => i.codigo !== pesoProd.codigo);
+  } else if (existente) {
+    existente.cantidad = g;
+  } else {
+    carrito.push({codigo: pesoProd.codigo, nombre: pesoProd.nombre, tipo: "pesable",
+                  precio: pesoProd.precio, unidad_gramos: pesoProd.unidad_gramos,
+                  cantidad: g, stock: pesoProd.stock});
+  }
+  cerrarPeso();
+  render();
+}
+function editarPeso(codigo) {
+  const i = carrito.find((x) => x.codigo === codigo);
+  if (i) abrirPeso(i);
+}
+function cerrarPeso() {
+  $("modal-peso").style.display = "none";
+  pesoProd = null;
+  foco();
+}
+
+// --- Alta rapida ---
+function arToggle() {
+  const pesable = $("ar-tipo").value === "pesable";
+  $("ar-grupo-gramos").style.display = pesable ? "" : "none";
+  $("ar-label-precio").textContent = pesable ? "Precio" : "Precio por unidad";
+  $("ar-label-stock").textContent = pesable ? "Stock (gramos)" : "Stock (unidades)";
+  $("ar-hint").style.display = pesable ? "block" : "none";
+  arHint();
+}
+function arHint() {
+  const hint = $("ar-hint");
+  if (hint.style.display === "none") return;
+  const precio = parseFloat($("ar-precio").value) || 0;
+  const gramos = parseFloat($("ar-gramos").value) || 0;
+  if (precio > 0 && gramos > 0) {
+    const porKilo = precio / gramos * 1000;
+    hint.textContent = "💡 $" + precio.toLocaleString("es-AR") + " cada " + gramos.toLocaleString("es-AR")
+      + " g  →  $" + porKilo.toLocaleString("es-AR", {maximumFractionDigits: 2}) + " por kilo";
+  } else {
+    hint.textContent = "💡 Ej: $500 cada 100 g.";
+  }
+}
+$("ar-precio").addEventListener("input", arHint);
+$("ar-gramos").addEventListener("input", arHint);
+function abrirAltaRapida(codigo) {
+  $("ar-codigo").textContent = codigo;
+  $("alta-rapida").classList.add("visible");
+  $("ar-nombre").value = "";
+  $("ar-tipo").value = "unitario";
+  $("ar-precio").value = "";
+  $("ar-stock").value = "";
+  $("ar-gramos").value = "100";
+  arToggle();
+  $("ar-nombre").focus();
+  mostrarAviso("Producto no encontrado. Cargalo abajo.", "error");
+}
+function cerrarAltaRapida() {
+  $("alta-rapida").classList.remove("visible");
+  foco();
+}
+async function guardarAltaRapida() {
+  const codigo = $("ar-codigo").textContent;
+  const nombre = $("ar-nombre").value.trim();
+  const tipo = $("ar-tipo").value;
+  if (!nombre) { mostrarAviso("Poné un nombre.", "error"); return; }
+  const cuerpo = {
+    codigo, nombre, tipo,
+    precio: $("ar-precio").value,
+    stock: $("ar-stock").value,
+    unidad_gramos: $("ar-gramos").value,
+  };
+  try {
+    const r = await fetch("/api/producto-rapido", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(cuerpo),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      $("alta-rapida").classList.remove("visible");
+      mostrarAviso("Producto creado.", "ok");
+      if (res.tipo === "pesable") {
+        abrirPeso(res);
+      } else {
+        carrito.push({codigo: res.codigo, nombre: res.nombre, tipo: res.tipo, precio: res.precio,
+                      unidad_gramos: res.unidad_gramos, cantidad: 1, stock: res.stock});
+        render();
+      }
+    } else {
+      mostrarAviso(res.error || "No se pudo crear.", "error");
+    }
+  } catch (err) {
+    mostrarAviso("No se pudo conectar con el sistema.", "error");
+  }
+}
+
+function escapar(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function jsStr(s) { return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'"); }
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("button") && !e.target.closest("input") && !e.target.closest("select") && !e.target.closest(".modal-fondo")) foco();
+});
+render();
+</script>
+{% endblock %}

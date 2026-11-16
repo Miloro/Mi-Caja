@@ -1,0 +1,22 @@
+# --- Base de datos (datos reales: NO subir) ---
+datos.db
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Entorno virtual de Python ---
+.venv/
+venv/
+env/
+
+# --- Cache de Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+
+# --- Sistema operativo / editores ---
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% set seccion = "productos" %}
+{% block titulo %}Productos{% endblock %}
+
+{% block contenido %}
+<h1>Productos</h1>
+
+<div class="tarjeta">
+  <label for="nuevo-codigo">Código de barras</label>
+  <input type="text" id="nuevo-codigo" placeholder="Escaneá o escribí el código y Enter" autocomplete="off" autofocus>
+  <div id="estado-codigo" class="hint-codigo"></div>
+
+  <!-- ALTA de producto nuevo (se muestra si el código no existe) -->
+  <form method="post" action="{{ url_for('crear_producto') }}" id="form-alta" style="margin-top:6px">
+    <input type="hidden" name="codigo" id="alta-codigo">
+    <div id="alta-campos">
+      <div class="fila-form">
+        <div>
+          <label>Nombre</label>
+          <input type="text" name="nombre" id="alta-nombre" placeholder="Ej: Gaseosa 1.5L" autocomplete="off">
+        </div>
+        <div>
+          <label>Tipo</label>
+          <select name="tipo" onchange="togglePesable(this, 'n')">
+            <option value="unitario">Por unidad</option>
+            <option value="pesable">Pesable (por gramos)</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <label>Descripción (opcional)</label>
+        <input type="text" name="descripcion" placeholder="Ej: Marca, sabor, detalle..." autocomplete="off">
+      </div>
+      <div class="fila-precio" style="margin-top:12px">
+        <div>
+          <label id="n-label-precio">Precio por unidad</label>
+          <input type="number" name="precio" id="n-precio" step="0.01" min="0" value="" placeholder="0">
+        </div>
+        <div id="n-grupo-gramos" style="display:none">
+          <label>cada cuántos gramos</label>
+          <input type="number" name="unidad_gramos" id="n-gramos" min="1" step="1" value="100" placeholder="100">
+        </div>
+        <div>
+          <label id="n-label-stock">Stock (unidades)</label>
+          <input type="number" name="stock" step="0.001" min="0" value="" placeholder="0">
+        </div>
+        <div style="display:flex; align-items:end">
+          <button type="submit" class="boton-verde">+ Agregar</button>
+        </div>
+      </div>
+      <div id="n-hint" class="hint-pesable" style="display:none"></div>
+    </div>
+  </form>
+
+  <!-- REPOSICIÓN de stock (se muestra si el código ya existe) -->
+  <form method="post" action="{{ url_for('ingreso_stock') }}" id="repo-box" style="display:none; margin-top:6px">
+    <input type="hidden" name="codigo" id="repo-codigo">
+    <div class="repo-cab">📦 <strong id="repo-nombre"></strong> — ya existe. Ingresá mercadería:</div>
+    <div class="fila-precio" style="margin-top:12px">
+      <div>
+        <label>Cantidad a agregar</label>
+        <input type="number" name="cantidad" id="repo-cantidad" step="0.001" min="0" placeholder="0" required>
+      </div>
+      <div>
+        <label>N° de lote (opcional)</label>
+        <input type="text" name="codigo_lote" id="repo-lote" placeholder="Ej: L-2026-01" autocomplete="off">
+      </div>
+      <div>
+        <label>Vencimiento (opcional)</label>
+        <input type="date" name="vencimiento" id="repo-venc">
+      </div>
+      <div style="display:flex; align-items:end">
+        <button type="submit" class="boton-verde">Ingresar stock</button>
+      </div>
+    </div>
+    <div class="hint-pesable" style="display:block">💡 El vencimiento y el lote se cargan a mano (los códigos de barra comunes no los traen). Si tu lector lee un código GS1-128 con vencimiento, se completa solo.</div>
+  </form>
+</div>
+
+<div class="tarjeta">
+  <form method="get" action="{{ url_for('productos') }}" style="margin-bottom:16px">
+    <input type="search" name="q" value="{{ busqueda }}" placeholder="🔍 Buscar por nombre, código o descripción...">
+  </form>
+
+  {% if productos %}
+  <div style="overflow-x:auto">
+  <table class="tabla-productos">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Nombre</th>
+        <th>Tipo</th>
+        <th class="num">Precio</th>
+        <th class="num">Stock</th>
+        <th>Vencimiento</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in productos %}
+      {% set tiene_lotes = lotes_por_producto.get(p['id']) %}
+      {% set v = venc_por_producto.get(p['id']) %}
+      <tr>
+        <td class="col-codigo">
+          {% if tiene_lotes %}<button type="button" class="toggle-lotes" onclick="toggleLotes({{ p['id'] }}, this)">▸</button>{% endif %}
+          {{ p["codigo"] }}
+        </td>
+        <td>
+          <div class="nombre-trunc" title="{{ p['nombre'] }}">{{ p["nombre"] }}</div>
+          {% if p["descripcion"] %}<div class="desc-trunc" title="{{ p['descripcion'] }}">{{ p["descripcion"] }}</div>{% endif %}
+        </td>
+        <td>
+          {% if p["tipo"] == "pesable" %}<span class="etiqueta">Pesable</span>{% else %}<span class="etiqueta etiqueta-gris">Unidad</span>{% endif %}
+        </td>
+        <td class="num">
+          ${{ "%.2f"|format(p["precio"]) }}
+          {% if p["tipo"] == "pesable" %}<div class="desc-trunc">cada {{ (p["unidad_gramos"]|int) }} g</div>{% endif %}
+        </td>
+        <td class="num {{ 'stock-bajo' if p['stock'] <= 0 }}">
+          {% if p["tipo"] == "pesable" %}{{ "%g"|format(p["stock"]) }} g{% else %}{{ "%g"|format(p["stock"]) }}{% endif %}
+        </td>
+        <td>
+          {% if v %}<span class="venc venc-{{ v['estado'] }}">{{ v["venc_texto"] }}</span>{% else %}<span class="venc-no">—</span>{% endif %}
+        </td>
+        <td class="num col-acciones">
+          <button type="button" class="boton-gris boton-chico btn-editar"
+            data-id="{{ p['id'] }}" data-codigo="{{ p['codigo'] }}" data-nombre="{{ p['nombre'] }}"
+            data-descripcion="{{ p['descripcion'] }}" data-tipo="{{ p['tipo'] }}" data-precio="{{ p['precio'] }}"
+            data-gramos="{{ p['unidad_gramos'] }}" data-stock="{{ p['stock'] }}">Editar</button>
+          <form method="post" action="{{ url_for('borrar_producto', pid=p['id']) }}" style="display:inline"
+            onsubmit="return confirm('¿Borrar este producto?')">
+            <button type="submit" class="boton-rojo boton-chico">Borrar</button>
+          </form>
+        </td>
+      </tr>
+      {% if tiene_lotes %}
+      <tr class="detalle-lotes" id="det-{{ p['id'] }}" style="display:none">
+        <td colspan="7">
+          <div class="sub-lotes">
+            <strong>Lotes de {{ p["nombre"] }}</strong>
+            <table class="tabla-sub">
+              <thead><tr><th>N° lote</th><th>Vencimiento</th><th class="num">Cantidad ingresada</th><th>Ingreso</th><th></th></tr></thead>
+              <tbody>
+                {% for l in tiene_lotes %}
+                <tr>
+                  <td>{{ l["codigo_lote"] or "—" }}</td>
+                  <td><span class="venc venc-{{ l['estado'] }}">{{ l["venc_texto"] }}</span>
+                    {% if l["estado"] == "vencido" %}<span class="mini-alerta">vencido</span>
+                    {% elif l["estado"] == "pronto" %}<span class="mini-alerta pronto">en {{ l["dias"] }} d</span>{% endif %}
+                  </td>
+                  <td class="num">{{ "%g"|format(l["cantidad"]) }}</td>
+                  <td>{{ (l["fecha_ingreso"] or "")[:10] }}</td>
+                  <td class="num">
+                    <form method="post" action="{{ url_for('borrar_lote', lid=l['id']) }}" style="display:inline"
+                      onsubmit="return confirm('¿Eliminar este registro de lote? (no cambia el stock)')">
+                      <button type="submit" class="boton-rojo boton-chico">Quitar</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="vacio">
+    {% if busqueda %}No se encontraron productos para "{{ busqueda }}".{% else %}Todavía no cargaste productos. Agregá el primero arriba.{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal de edicion -->
+<div id="modal" class="modal-fondo" style="display:none">
+  <div class="tarjeta" style="width:460px; max-width:92vw;">
+    <strong>Editar producto</strong>
+    <form method="post" id="form-editar" style="margin-top:14px">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <div><label>Código</label><input type="text" name="codigo" id="e-codigo" required></div>
+        <div>
+          <label>Tipo</label>
+          <select name="tipo" id="e-tipo" onchange="togglePesable(this, 'e')">
+            <option value="unitario">Por unidad</option>
+            <option value="pesable">Pesable (por gramos)</option>
+          </select>
+        </div>
+      </div>
+      <div style="height:10px"></div>
+      <label>Nombre</label>
+      <input type="text" name="nombre" id="e-nombre" required>
+      <div style="height:10px"></div>
+      <label>Descripción</label>
+      <input type="text" name="descripcion" id="e-descripcion">
+      <div style="height:10px"></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px">
+        <div><label id="e-label-precio">Precio</label><input type="number" name="precio" id="e-precio" step="0.01" min="0"></div>
+        <div id="e-grupo-gramos" style="display:none">
+          <label>cada cuántos gramos</label>
+          <input type="number" name="unidad_gramos" id="e-gramos" min="1" step="1">
+        </div>
+        <div><label id="e-label-stock">Stock</label><input type="number" name="stock" id="e-stock" step="0.001" min="0"></div>
+      </div>
+      <div id="e-hint" class="hint-pesable" style="display:none"></div>
+      <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end">
+        <button type="button" class="boton-gris" onclick="cerrarModal()">Cancelar</button>
+        <button type="submit" class="boton-verde">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const $$ = (id) => document.getElementById(id);
+
+function togglePesable(select, pref) {
+  const pesable = select.value === "pesable";
+  $$(pref + "-grupo-gramos").style.display = pesable ? "" : "none";
+  $$(pref + "-label-precio").textContent = pesable ? "Precio" : (pref === "n" ? "Precio por unidad" : "Precio");
+  $$(pref + "-label-stock").textContent = pesable ? "Stock (gramos)" : (pref === "n" ? "Stock (unidades)" : "Stock");
+  $$(pref + "-hint").style.display = pesable ? "block" : "none";
+  actualizarHint(pref);
+}
+function actualizarHint(pref) {
+  const hint = $$(pref + "-hint");
+  if (!hint || hint.style.display === "none") return;
+  const precio = parseFloat($$(pref + "-precio").value) || 0;
+  const gramos = parseFloat($$(pref + "-gramos").value) || 0;
+  if (precio > 0 && gramos > 0) {
+    const porKilo = precio / gramos * 1000;
+    hint.textContent = "💡 $" + precio.toLocaleString("es-AR") + " cada " + gramos.toLocaleString("es-AR")
+      + " g  →  $" + porKilo.toLocaleString("es-AR", {maximumFractionDigits: 2}) + " por kilo";
+  } else {
+    hint.textContent = "💡 Poné el precio y cada cuántos gramos corresponde. Ej: $500 cada 100 g.";
+  }
+}
+["n", "e"].forEach((pref) => {
+  const p = $$(pref + "-precio"), g = $$(pref + "-gramos");
+  if (p) p.addEventListener("input", () => actualizarHint(pref));
+  if (g) g.addEventListener("input", () => actualizarHint(pref));
+});
+
+// --- Detectar si el código ya existe: alta vs reposición ---
+let timerCodigo = null;
+const inputCodigo = $$("nuevo-codigo");
+
+function parseGS1(raw) {
+  // Best-effort: separa un código GS1-128 en {codigo, vencimiento, lote}.
+  raw = (raw || "").replace(/[\x1d]/g, "").trim();
+  const res = {codigo: raw, vencimiento: "", lote: ""};
+  // (01) GTIN 14 dígitos + (17) vto YYMMDD + (10) lote
+  const m = raw.match(/^01(\d{14})(.*)$/);
+  if (!m) return res;
+  let gtin = m[1], resto = m[2];
+  res.codigo = gtin.replace(/^0+/, "").slice(-13);  // EAN-13 dentro del GTIN
+  const mv = resto.match(/17(\d{6})/);
+  if (mv) {
+    const y = "20" + mv[1].slice(0, 2), mo = mv[1].slice(2, 4), d = mv[1].slice(4, 6);
+    res.vencimiento = `${y}-${mo}-${d}`;
+  }
+  const ml = resto.match(/10([^\x1d]+?)(?:17\d{6}|$)/);
+  if (ml) res.lote = ml[1];
+  return res;
+}
+
+async function revisarCodigo() {
+  const info = parseGS1(inputCodigo.value);
+  const codigo = info.codigo.trim();
+  $$("alta-codigo").value = codigo;
+  $$("repo-codigo").value = codigo;
+  if (!codigo) {
+    $$("alta-campos").style.display = "";
+    $$("repo-box").style.display = "none";
+    $$("estado-codigo").textContent = "";
+    return;
+  }
+  try {
+    const r = await fetch("/api/producto/" + encodeURIComponent(codigo));
+    if (r.status === 404) {
+      $$("alta-campos").style.display = "";
+      $$("repo-box").style.display = "none";
+      $$("estado-codigo").innerHTML = '<span class="ok-nuevo">Producto nuevo — completá los datos.</span>';
+      $$("alta-nombre").focus();
+    } else {
+      const p = await r.json();
+      $$("alta-campos").style.display = "none";
+      $$("repo-box").style.display = "";
+      $$("repo-nombre").textContent = p.nombre;
+      $$("estado-codigo").innerHTML = '<span class="ya-existe">Ya existe: ' + p.nombre + '</span>';
+      if (info.vencimiento) $$("repo-venc").value = info.vencimiento;
+      if (info.lote) $$("repo-lote").value = info.lote;
+      $$("repo-cantidad").focus();
+    }
+  } catch (e) { /* sin conexión: dejamos el alta por defecto */ }
+}
+inputCodigo.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); revisarCodigo(); } });
+inputCodigo.addEventListener("input", () => { clearTimeout(timerCodigo); timerCodigo = setTimeout(revisarCodigo, 500); });
+
+// --- Desplegar lotes ---
+function toggleLotes(id, btn) {
+  const fila = $$("det-" + id);
+  const abierto = fila.style.display !== "none";
+  fila.style.display = abierto ? "none" : "table-row";
+  btn.textContent = abierto ? "▸" : "▾";
+}
+
+// --- Editar ---
+document.querySelectorAll(".btn-editar").forEach((b) => {
+  b.addEventListener("click", () => {
+    const d = b.dataset;
+    $$("form-editar").action = "/productos/" + d.id + "/editar";
+    $$("e-codigo").value = d.codigo;
+    $$("e-nombre").value = d.nombre;
+    $$("e-descripcion").value = d.descripcion;
+    $$("e-tipo").value = d.tipo;
+    $$("e-precio").value = d.precio;
+    $$("e-gramos").value = d.gramos && Number(d.gramos) > 0 ? Number(d.gramos) : 100;
+    $$("e-stock").value = d.stock;
+    togglePesable($$("e-tipo"), "e");
+    $$("modal").style.display = "flex";
+  });
+});
+function cerrarModal() { $$("modal").style.display = "none"; }
+$$("modal").addEventListener("click", (e) => { if (e.target.id === "modal") cerrarModal(); });
+inputCodigo.focus();
+</script>
+{% endblock %}

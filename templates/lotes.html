@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set seccion = "lotes" %}
+{% block titulo %}Lotes{% endblock %}
+
+{% block contenido %}
+<h1>Lotes y vencimientos</h1>
+
+{% set vencidos = lotes | selectattr('estado', 'equalto', 'vencido') | list %}
+{% set prontos = lotes | selectattr('estado', 'equalto', 'pronto') | list %}
+
+<div class="fila-form" style="grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:18px">
+  <div class="tarjeta" style="margin:0; text-align:center">
+    <div class="total-label">Vencidos</div>
+    <div style="font-size:32px; font-weight:800; color:var(--rojo)">{{ vencidos | length }}</div>
+  </div>
+  <div class="tarjeta" style="margin:0; text-align:center">
+    <div class="total-label">Por vencer (≤30 días)</div>
+    <div style="font-size:32px; font-weight:800; color:#b45309">{{ prontos | length }}</div>
+  </div>
+  <div class="tarjeta" style="margin:0; text-align:center">
+    <div class="total-label">Total de lotes</div>
+    <div style="font-size:32px; font-weight:800; color:var(--gris)">{{ lotes | length }}</div>
+  </div>
+</div>
+
+<div class="tarjeta">
+  {% if lotes %}
+  <div style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Código</th>
+        <th>N° lote</th>
+        <th>Vencimiento</th>
+        <th class="num">Cantidad</th>
+        <th>Ingreso</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in lotes %}
+      <tr>
+        <td><div class="nombre-trunc" title="{{ l['producto_nombre'] }}">{{ l["producto_nombre"] }}</div></td>
+        <td class="col-codigo">{{ l["producto_codigo"] }}</td>
+        <td>{{ l["codigo_lote"] or "—" }}</td>
+        <td>
+          <span class="venc venc-{{ l['estado'] }}">{{ l["venc_texto"] }}</span>
+          {% if l["estado"] == "vencido" %}<span class="mini-alerta">vencido</span>
+          {% elif l["estado"] == "pronto" %}<span class="mini-alerta pronto">en {{ l["dias"] }} d</span>{% endif %}
+        </td>
+        <td class="num">{{ "%g"|format(l["cantidad"]) }}</td>
+        <td>{{ (l["fecha_ingreso"] or "")[:10] }}</td>
+        <td class="num">
+          <form method="post" action="{{ url_for('borrar_lote', lid=l['id']) }}" style="display:inline"
+            onsubmit="return confirm('¿Eliminar este registro de lote? (no cambia el stock del producto)')">
+            <button type="submit" class="boton-rojo boton-chico">Quitar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="hint-pesable" style="display:block; margin-top:16px">
+    💡 Los lotes son un registro para controlar vencimientos y trazabilidad. El stock real del producto se maneja en la pestaña Productos; quitar un lote de acá no modifica el stock.
+  </div>
+  {% else %}
+  <div class="vacio">Todavía no hay lotes. Se crean al ingresar mercadería con vencimiento o N° de lote (en Productos, escaneá un producto existente).</div>
+  {% endif %}
+</div>
+{% endblock %}

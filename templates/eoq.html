@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% set seccion = "eoq" %}
+{% block titulo %}Lote óptimo{% endblock %}
+
+{% block contenido %}
+<h1>Lote Óptimo de Compra</h1>
+
+<div class="venta-grid">
+  <div class="tarjeta">
+    <p class="formula">Q = √( 2 · R · S / ( K · C ) )</p>
+
+    <div style="margin-bottom:12px">
+      <label>Producto (opcional, completa el precio C)</label>
+      <select id="sel-producto" onchange="cargarPrecio()">
+        <option value="">— elegir —</option>
+        {% for p in productos %}
+        <option value="{{ p['precio'] }}">{{ p["nombre"] }} (${{ "%.2f"|format(p["precio"]) }})</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+      <div>
+        <label>R = Demanda anual (unidades)</label>
+        <input type="number" id="R" min="0" step="1" placeholder="Ej: 1200">
+      </div>
+      <div>
+        <label>S = Costo de gestión de compras ($ por pedido)</label>
+        <input type="number" id="S" min="0" step="0.01" placeholder="Ej: 500">
+      </div>
+      <div>
+        <label>K = % del costo para mantener inventario</label>
+        <input type="number" id="K" min="0" step="0.01" placeholder="Ej: 20">
+      </div>
+      <div>
+        <label>C = Precio unitario ($)</label>
+        <input type="number" id="C" min="0" step="0.01" placeholder="Ej: 150">
+      </div>
+    </div>
+
+    <button class="boton-verde" style="margin-top:14px" onclick="calcular()">Calcular</button>
+    <div id="error-eoq" class="hint-codigo" style="color:var(--rojo)"></div>
+  </div>
+
+  <div class="panel-total" style="position:static">
+    <div class="total-label">Cantidad óptima a comprar (Q)</div>
+    <div class="eoq-resultado" id="res-q">—</div>
+    <div class="resumen"><span>Pedidos por año (R/Q)</span><span id="res-pedidos">—</span></div>
+    <div class="resumen"><span>Días entre pedidos</span><span id="res-dias">—</span></div>
+    <div class="resumen"><span>Costo de mantener por unidad (K·C)</span><span id="res-kc">—</span></div>
+    <div class="hint-pesable" style="display:block; margin-top:14px">
+      💡 <strong>Q</strong> es cuántas unidades conviene pedir en cada compra para gastar lo menos posible entre el costo de pedir y el de mantener stock.
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function cargarPrecio() {
+  const v = $("sel-producto").value;
+  if (v) $("C").value = v;
+}
+
+function calcular() {
+  $("error-eoq").textContent = "";
+  const R = parseFloat($("R").value) || 0;
+  const S = parseFloat($("S").value) || 0;
+  const Kpct = parseFloat($("K").value) || 0;
+  const C = parseFloat($("C").value) || 0;
+  const K = Kpct / 100;  // el porcentaje a decimal
+
+  if (R <= 0 || S <= 0 || K <= 0 || C <= 0) {
+    $("error-eoq").textContent = "Completá R, S, K y C con valores mayores a 0.";
+    return;
+  }
+  const KC = K * C;
+  const Q = Math.sqrt((2 * R * S) / KC);
+  const pedidos = R / Q;
+  const dias = 365 / pedidos;
+
+  $("res-q").textContent = Math.round(Q).toLocaleString("es-AR");
+  $("res-pedidos").textContent = pedidos.toLocaleString("es-AR", {maximumFractionDigits: 1});
+  $("res-dias").textContent = Math.round(dias).toLocaleString("es-AR") + " días";
+  $("res-kc").textContent = "$" + KC.toLocaleString("es-AR", {maximumFractionDigits: 2});
+}
+</script>
+{% endblock %}

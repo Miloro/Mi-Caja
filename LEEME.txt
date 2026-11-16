@@ -1,0 +1,35 @@
+===========================================
+   MI CAJA - Sistema de Venta con lector
+===========================================
+
+COMO USARLO
+-----------
+1) Hace doble clic en "iniciar.bat".
+   - La primera vez tarda un poco (instala lo necesario).
+   - Se abre solo en tu navegador.
+2) Para cerrar el sistema: cerra la ventana negra.
+
+PANTALLAS
+---------
+- VENTA: apunta el lector al codigo. El producto se agrega
+  a la lista y el TOTAL se suma solo. Cuando terminas,
+  toca "Cerrar venta" y se descuenta el stock.
+- PRODUCTOS: cargar, editar y borrar productos
+  (codigo, nombre, precio, stock). Podes escanear el codigo
+  en el campo de codigo tambien.
+- HISTORIAL: todas las ventas cerradas.
+
+EL LECTOR DE CODIGO DE BARRAS
+-----------------------------
+Funciona como un teclado: no hay que instalar nada.
+Apunta, dispara, y escribe el codigo seguido de Enter.
+En la pantalla de Venta el cursor ya queda listo para escanear.
+
+TUS DATOS
+---------
+Todo se guarda en el archivo "datos.db" (en esta carpeta).
+Para hacer un respaldo (backup): copia ese archivo a un
+pendrive. Para restaurar: volve a pegarlo aca.
+
+NO NECESITAS INTERNET para usarlo (solo la primera vez,
+para instalar).

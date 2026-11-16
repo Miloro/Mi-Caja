@@ -1,0 +1,260 @@
+:root {
+  --azul: #2563eb;
+  --azul-oscuro: #1e40af;
+  --verde: #16a34a;
+  --verde-oscuro: #15803d;
+  --rojo: #dc2626;
+  --gris: #64748b;
+  --gris-claro: #f1f5f9;
+  --borde: #e2e8f0;
+  --texto: #0f172a;
+  --fondo: #f8fafc;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+}
+
+header {
+  background: #fff;
+  border-bottom: 1px solid var(--borde);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+header .marca {
+  font-weight: 700;
+  font-size: 18px;
+  margin-right: 16px;
+  padding: 16px 0;
+}
+
+header nav {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+header nav a {
+  padding: 16px 14px;
+  text-decoration: none;
+  color: var(--gris);
+  font-weight: 600;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+
+header nav a.activo {
+  color: var(--azul);
+  border-bottom-color: var(--azul);
+}
+
+header nav a:hover { color: var(--azul); }
+
+main {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+h1 { font-size: 24px; margin: 0 0 20px; }
+
+.tarjeta {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+label { display: block; font-size: 13px; font-weight: 600; color: var(--gris); margin-bottom: 6px; }
+
+input[type="text"], input[type="number"], input[type="search"] {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+  color: var(--texto);
+}
+
+input:focus { outline: 2px solid var(--azul); border-color: var(--azul); }
+
+button, .boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--azul);
+  color: #fff;
+  text-decoration: none;
+}
+button:hover, .boton:hover { background: var(--azul-oscuro); }
+
+.boton-verde { background: var(--verde); }
+.boton-verde:hover { background: var(--verde-oscuro); }
+.boton-gris { background: var(--gris); }
+.boton-rojo { background: var(--rojo); }
+.boton-chico { padding: 6px 10px; font-size: 13px; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--borde); }
+th { font-size: 13px; color: var(--gris); text-transform: uppercase; letter-spacing: .03em; }
+td.num, th.num { text-align: right; }
+tr:last-child td { border-bottom: none; }
+
+.fila-form { display: grid; grid-template-columns: 1.5fr 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
+.stock-bajo { color: var(--rojo); font-weight: 700; }
+.vacio { color: var(--gris); text-align: center; padding: 40px 0; }
+
+/* ----- Pantalla de venta ----- */
+.venta-grid { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+
+#codigo {
+  font-size: 20px;
+  padding: 16px;
+  border: 2px solid var(--azul);
+}
+
+.carrito-item-nombre { font-weight: 600; }
+.carrito-item-codigo { font-size: 12px; color: var(--gris); }
+
+.cant-control { display: inline-flex; align-items: center; gap: 2px; }
+.cant-control button {
+  width: 30px; height: 30px; padding: 0; font-size: 18px;
+  background: var(--gris-claro); color: var(--texto);
+}
+.cant-control button:hover { background: #dbe2ea; }
+.cant-control .cant { min-width: 34px; text-align: center; font-weight: 700; }
+
+.panel-total {
+  position: sticky; top: 80px;
+  background: #fff; border: 1px solid var(--borde);
+  border-radius: 12px; padding: 20px;
+}
+.total-numero { font-size: 40px; font-weight: 800; color: var(--verde-oscuro); }
+.total-label { color: var(--gris); font-size: 13px; font-weight: 600; text-transform: uppercase; }
+.panel-total .boton { width: 100%; font-size: 18px; padding: 16px; margin-top: 16px; }
+.resumen { display: flex; justify-content: space-between; color: var(--gris); margin: 6px 0; }
+
+.aviso {
+  padding: 12px 14px; border-radius: 8px; margin-bottom: 14px;
+  font-weight: 600; display: none;
+}
+.aviso.error { background: #fef2f2; color: var(--rojo); display: block; }
+.aviso.ok { background: #f0fdf4; color: var(--verde-oscuro); display: block; }
+
+/* Alta rapida */
+#alta-rapida { display: none; margin-top: 14px; border-top: 1px dashed var(--borde); padding-top: 14px; }
+#alta-rapida.visible { display: block; }
+#alta-rapida .fila { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+  color: var(--texto);
+}
+select:focus { outline: 2px solid var(--azul); border-color: var(--azul); }
+
+.fila-form { grid-template-columns: 1.5fr 2fr 1.3fr; }
+.fila-precio { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+
+.etiqueta {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  background: #ecfdf5; color: var(--verde-oscuro);
+}
+.etiqueta-gris { background: var(--gris-claro); color: var(--gris); }
+
+.modal-fondo {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50;
+  align-items: center; justify-content: center;
+}
+
+.hint-pesable {
+  margin-top: 10px;
+  background: #eff6ff;
+  color: var(--azul-oscuro);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* --- Productos: truncado y columnas --- */
+.tabla-productos td { vertical-align: top; }
+.nombre-trunc, .desc-trunc {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nombre-trunc { font-weight: 600; }
+.desc-trunc { font-size: 12px; color: var(--gris); }
+.col-acciones { white-space: nowrap; }
+.col-codigo { white-space: nowrap; }
+
+.toggle-lotes {
+  width: 22px; height: 22px; padding: 0; margin-right: 4px;
+  background: var(--gris-claro); color: var(--texto); font-size: 12px; border-radius: 6px;
+}
+.toggle-lotes:hover { background: #dbe2ea; }
+
+/* --- Vencimientos --- */
+.venc { display: inline-block; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 13px; }
+.venc-ok { background: #ecfdf5; color: var(--verde-oscuro); }
+.venc-pronto { background: #fffbeb; color: #b45309; }
+.venc-vencido { background: #fef2f2; color: var(--rojo); }
+.venc-no { color: var(--gris); }
+.mini-alerta { font-size: 11px; font-weight: 700; color: var(--rojo); margin-left: 6px; }
+.mini-alerta.pronto { color: #b45309; }
+
+/* --- Sub-tabla de lotes --- */
+.detalle-lotes > td { background: var(--gris-claro); padding: 0; }
+.sub-lotes { padding: 14px 18px; }
+.tabla-sub { width: 100%; margin-top: 8px; background: #fff; border-radius: 8px; }
+.tabla-sub th, .tabla-sub td { padding: 8px 10px; }
+
+/* --- Reposición / estado código --- */
+.hint-codigo { min-height: 18px; margin: 6px 0; font-size: 13px; font-weight: 600; }
+.ok-nuevo { color: var(--verde-oscuro); }
+.ya-existe { color: var(--azul); }
+.repo-cab { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 12px; color: var(--azul-oscuro); }
+
+/* --- Generador de códigos --- */
+.barcode-salida { text-align: center; padding: 24px; background: #fff; border: 1px dashed var(--borde); border-radius: 12px; }
+.barcode-salida svg, .barcode-salida canvas { max-width: 100%; }
+
+/* --- EOQ --- */
+.eoq-resultado { font-size: 44px; font-weight: 800; color: var(--verde-oscuro); }
+.formula { font-style: italic; color: var(--gris); font-size: 15px; }
+
+@media (max-width: 820px) {
+  .venta-grid { grid-template-columns: 1fr; }
+  .fila-form { grid-template-columns: 1fr 1fr; }
+  .fila-precio { grid-template-columns: 1fr 1fr; }
+  .panel-total { position: static; }
+}
